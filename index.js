@@ -1,0 +1,393 @@
+import React, { useState, useMemo } from 'react';
+import { 
+  Car, 
+  Zap, 
+  Droplets, 
+  Trash2, 
+  TreeDeciduous, 
+  Calculator, 
+  BarChart3, 
+  Info,
+  MapPin,
+  Users,
+  Building2
+} from 'lucide-react';
+
+const LOCALIDADES_BOGOTA = [
+  "Usaquén", "Chapinero", "Santa Fe", "San Cristóbal", "Usme", 
+  "Tunjuelito", "Bosa", "Kennedy", "Fontibón", "Engativá", 
+  "Suba", "Barrios Unidos", "Teusaquillo", "Los Mártires", 
+  "Antonio Nariño", "Puente Aranda", "La Candelaria", 
+  "Rafael Uribe Uribe", "Ciudad Bolívar", "Sumapaz"
+];
+
+const App = () => {
+  // Configuración Inicial de Localidad y Población
+  const [localidad, setLocalidad] = useState('Suba');
+  const [poblacion, setPoblacion] = useState(1300000);
+
+  // Estado de las respuestas (almacena el valor numérico medio del rango seleccionado)
+  const [respuestas, setRespuestas] = useState({
+    vehiculos: 225000,
+    motos: 50000,
+    kilometraje: 12500,
+    energia: 150,
+    agua: 90,
+    residuos: 400000,
+    arboles: 350000
+  });
+
+  // Constantes de Ingeniería Ambiental (Factores de Emisión)
+  const FE_GASOLINA = 2.31; // kg CO2e / L
+  const FE_ENERGIA = 0.1;   // kg CO2e / kWh
+  const FE_AGUA = 0.3;      // kg CO2e / m3
+  const FE_RESIDUOS = 0.45; // t CO2e / t
+  const CAPTURA_ARBOL = 20; // kg CO2e / año / árbol
+
+  // Cálculos técnicos
+  const resultados = useMemo(() => {
+    // 1. Transporte (Asumiendo rendimiento promedio de 40km/galón -> ~10.5 km/L)
+    const litrosEstimados = (respuestas.vehiculos + respuestas.motos) * (respuestas.kilometraje / 10.5);
+    const co2Transporte = (litrosEstimados * FE_GASOLINA) / 1000; // Convertir a toneladas
+
+    // 2. Energía (Asumiendo 4 personas por vivienda promedio en Bogotá)
+    const viviendas = poblacion / 4;
+    const co2Energia = (viviendas * respuestas.energia * 12 * FE_ENERGIA) / 1000; // t CO2e anual
+
+    // 3. Agua
+    const m3Anuales = (poblacion * respuestas.agua * 365) / 1000;
+    const co2Agua = (m3Anuales * FE_AGUA) / 1000; // t CO2e anual
+
+    // 4. Residuos
+    const co2Residuos = respuestas.residuos * FE_RESIDUOS;
+
+    // 5. Sumideros (Captura)
+    const capturaTotal = (respuestas.arboles * CAPTURA_ARBOL) / 1000; // t CO2e anual
+
+    const huellaTotal = co2Transporte + co2Energia + co2Agua + co2Residuos - capturaTotal;
+    const huellaPerCapita = poblacion > 0 ? huellaTotal / poblacion : 0;
+
+    return {
+      transporte: co2Transporte,
+      energia: co2Energia,
+      agua: co2Agua,
+      residuos: co2Residuos,
+      captura: capturaTotal,
+      total: huellaTotal,
+      perCapita: huellaPerCapita
+    };
+  }, [respuestas, poblacion]);
+
+  const handleSelect = (field, value) => {
+    setRespuestas(prev => ({ ...prev, [field]: value }));
+  };
+
+  const SectionTitle = ({ icon: Icon, title, color }) => (
+    <div className={`flex items-center gap-2 mb-4 mt-6 ${color}`}>
+      <Icon size={20} />
+      <h2 className="text-lg font-bold uppercase tracking-tight">{title}</h2>
+    </div>
+  );
+
+  return (
+    <div className="min-h-screen bg-slate-50 p-4 md:p-8 font-sans text-slate-800">
+      <div className="max-w-6xl mx-auto">
+        {/* Header */}
+        <header className="bg-emerald-800 text-white p-8 rounded-3xl shadow-xl mb-8 relative overflow-hidden">
+          <div className="relative z-10">
+            <h1 className="text-3xl md:text-4xl font-black mb-2">Calculadora de Huella Territorial</h1>
+            <p className="text-emerald-100 opacity-90 max-w-2xl font-medium">
+              Evaluación de emisiones de CO₂e para las localidades de Bogotá D.C. 
+              utilizando factores de emisión oficiales IPCC y MinAmbiente.
+            </p>
+          </div>
+          <div className="absolute top-0 right-0 p-8 opacity-10 pointer-events-none">
+            <Calculator size={160} />
+          </div>
+        </header>
+
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          {/* Formulario de Datos */}
+          <div className="lg:col-span-7 space-y-6">
+            
+            {/* CONFIGURACIÓN INICIAL */}
+            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+              <SectionTitle icon={Building2} title="Configuración Territorial" color="text-emerald-700" />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="text-sm font-bold text-slate-600 mb-2 block flex items-center gap-2">
+                    <MapPin size={14} /> Seleccionar Localidad
+                  </label>
+                  <select 
+                    value={localidad}
+                    onChange={(e) => setLocalidad(e.target.value)}
+                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none transition-all font-medium"
+                  >
+                    {LOCALIDADES_BOGOTA.map(loc => (
+                      <option key={loc} value={loc}>{loc}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-sm font-bold text-slate-600 mb-2 block flex items-center gap-2">
+                    <Users size={14} /> Número de Habitantes
+                  </label>
+                  <input 
+                    type="number"
+                    value={poblacion}
+                    onChange={(e) => setPoblacion(Number(e.target.value))}
+                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none transition-all font-medium"
+                    placeholder="Ej: 1300000"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+              <div className="flex items-center gap-2 mb-6 p-3 bg-blue-50 text-blue-700 rounded-lg border border-blue-100">
+                <Info size={20} className="shrink-0" />
+                <p className="text-xs font-medium">Complete los datos de consumo promedio para obtener un diagnóstico preciso del impacto ambiental de <strong>{localidad}</strong>.</p>
+              </div>
+
+              {/* TRANSPORTE */}
+              <SectionTitle icon={Car} title="Transporte" color="text-blue-600" />
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-semibold block mb-2 text-slate-600">Vehículos particulares registrados:</label>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    {[
+                      { label: '< 200k', val: 150000 },
+                      { label: '200k - 250k', val: 225000 },
+                      { label: '> 250k', val: 300000 }
+                    ].map(opt => (
+                      <button
+                        key={opt.label}
+                        onClick={() => handleSelect('vehiculos', opt.val)}
+                        className={`py-2 px-3 text-sm rounded-lg border transition-all ${respuestas.vehiculos === opt.val ? 'bg-blue-600 text-white border-blue-600 shadow-md' : 'bg-white text-slate-600 border-slate-200 hover:border-blue-400'}`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                   <div>
+                    <label className="text-sm font-semibold block mb-2 text-slate-600">Motocicletas registradas:</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {[
+                        { label: '< 40k', val: 30000 },
+                        { label: '40k-60k', val: 50000 },
+                        { label: '> 60k', val: 80000 }
+                      ].map(opt => (
+                        <button
+                          key={opt.label}
+                          onClick={() => handleSelect('motos', opt.val)}
+                          className={`py-2 text-xs rounded-lg border transition-all ${respuestas.motos === opt.val ? 'bg-blue-600 text-white border-blue-600' : 'bg-white border-slate-200'}`}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-sm font-semibold block mb-2 text-slate-600">Kilometraje promedio anual:</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {[
+                        { label: '< 10k', val: 8000 },
+                        { label: '10-15k', val: 12500 },
+                        { label: '> 15k', val: 18000 }
+                      ].map(opt => (
+                        <button
+                          key={opt.label}
+                          onClick={() => handleSelect('kilometraje', opt.val)}
+                          className={`py-2 text-xs rounded-lg border transition-all ${respuestas.kilometraje === opt.val ? 'bg-blue-600 text-white border-blue-600' : 'bg-white border-slate-200'}`}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* ENERGÍA Y AGUA */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+                <div>
+                  <SectionTitle icon={Zap} title="Energía" color="text-yellow-600" />
+                  <label className="text-sm font-semibold block mb-2 text-slate-600">kWh/mes por vivienda:</label>
+                  <div className="space-y-2">
+                    {[
+                      { label: 'Bajo (< 100 kWh)', val: 80 },
+                      { label: 'Medio (100-200 kWh)', val: 150 },
+                      { label: 'Alto (> 200 kWh)', val: 250 }
+                    ].map(opt => (
+                      <button
+                        key={opt.label}
+                        onClick={() => handleSelect('energia', opt.val)}
+                        className={`w-full py-2 px-3 text-left text-sm rounded-lg border transition-all ${respuestas.energia === opt.val ? 'bg-yellow-500 text-white border-yellow-500' : 'bg-white border-slate-200 hover:border-yellow-200'}`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <SectionTitle icon={Droplets} title="Agua" color="text-cyan-600" />
+                  <label className="text-sm font-semibold block mb-2 text-slate-600">Litros/día por persona:</label>
+                  <div className="space-y-2">
+                    {[
+                      { label: 'Ahorro (< 80 L)', val: 70 },
+                      { label: 'Promedio (80-100 L)', val: 90 },
+                      { label: 'Exceso (> 100 L)', val: 120 }
+                    ].map(opt => (
+                      <button
+                        key={opt.label}
+                        onClick={() => handleSelect('agua', opt.val)}
+                        className={`w-full py-2 px-3 text-left text-sm rounded-lg border transition-all ${respuestas.agua === opt.val ? 'bg-cyan-500 text-white border-cyan-500' : 'bg-white border-slate-200 hover:border-cyan-200'}`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* RESIDUOS */}
+              <SectionTitle icon={Trash2} title="Residuos" color="text-orange-600" />
+              <label className="text-sm font-semibold block mb-2 text-slate-600">Toneladas de residuos sólidos al año:</label>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                {[
+                  { label: '< 350.000 t', val: 300000 },
+                  { label: '350k - 450k t', val: 400000 },
+                  { label: '> 450.000 t', val: 500000 }
+                ].map(opt => (
+                  <button
+                    key={opt.label}
+                    onClick={() => handleSelect('residuos', opt.val)}
+                    className={`py-2 px-3 text-sm rounded-lg border transition-all ${respuestas.residuos === opt.val ? 'bg-orange-600 text-white border-orange-600' : 'bg-white border-slate-200 hover:border-orange-300'}`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* SUMIDEROS */}
+              <SectionTitle icon={TreeDeciduous} title="Sumideros" color="text-emerald-600" />
+              <label className="text-sm font-semibold block mb-2 text-slate-600">Número de árboles en la localidad:</label>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                {[
+                  { label: '< 300.000', val: 250000 },
+                  { label: '300k - 400k', val: 350000 },
+                  { label: '> 400.000', val: 450000 }
+                ].map(opt => (
+                  <button
+                    key={opt.label}
+                    onClick={() => handleSelect('arboles', opt.val)}
+                    className={`py-2 px-3 text-sm rounded-lg border transition-all ${respuestas.arboles === opt.val ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white border-slate-200 hover:border-emerald-300'}`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Panel de Resultados */}
+          <div className="lg:col-span-5 space-y-6">
+            <div className="bg-white p-8 rounded-3xl shadow-xl border border-slate-200 sticky top-8">
+              <div className="flex items-center gap-3 mb-8 border-b border-slate-100 pb-4">
+                <div className="bg-emerald-100 p-2 rounded-lg text-emerald-700">
+                  <Calculator size={24} />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-black text-slate-800 leading-tight">Huella de {localidad}</h2>
+                  <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Cálculo en Tiempo Real</p>
+                </div>
+              </div>
+
+              <div className="space-y-6">
+                {/* Gran Total */}
+                <div className="text-center p-8 bg-slate-900 text-white rounded-3xl shadow-2xl relative overflow-hidden group">
+                   <div className="absolute inset-0 bg-emerald-500/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+                   <p className="text-slate-400 text-xs font-bold uppercase tracking-[0.2em] mb-2">Huella Local Anual</p>
+                   <h3 className="text-5xl font-black tracking-tighter">
+                     {Math.round(resultados.total).toLocaleString()} 
+                   </h3>
+                   <span className="text-emerald-400 font-bold text-sm">t CO₂e / año</span>
+                </div>
+
+                {/* Per Cápita */}
+                <div className="flex items-center justify-between p-5 bg-emerald-50 border border-emerald-100 rounded-2xl">
+                  <div>
+                    <p className="text-emerald-800 text-xs font-black uppercase mb-1">Huella Individual</p>
+                    <p className="text-emerald-600 text-[10px] leading-none">Promedio por habitante</p>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-3xl font-black text-emerald-900 leading-none">
+                      {resultados.perCapita.toFixed(2)}
+                    </span>
+                    <span className="text-xs font-bold text-emerald-700 ml-1 italic text-nowrap">t CO₂e/hab</span>
+                  </div>
+                </div>
+
+                {/* Gráficas de sectores */}
+                <div className="space-y-4 mt-6">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-black text-slate-500 uppercase tracking-widest">Desglose por Sectores</p>
+                    <BarChart3 size={14} className="text-slate-400" />
+                  </div>
+                  
+                  <MetricRow label="Transporte" value={resultados.transporte} total={resultados.total} color="bg-blue-500" icon={Car} />
+                  <MetricRow label="Residuos" value={resultados.residuos} total={resultados.total} color="bg-orange-500" icon={Trash2} />
+                  <MetricRow label="Energía" value={resultados.energia} total={resultados.total} color="bg-yellow-500" icon={Zap} />
+                  <MetricRow label="Agua" value={resultados.agua} total={resultados.total} color="bg-cyan-500" icon={Droplets} />
+                  
+                  <div className="mt-8 pt-6 border-t border-slate-100">
+                    <div className="flex justify-between items-center bg-emerald-500/10 p-3 rounded-xl border border-emerald-500/20">
+                      <div className="flex items-center gap-2">
+                        <TreeDeciduous size={16} className="text-emerald-600" />
+                        <span className="text-xs font-bold text-emerald-800">Compensación por Árboles</span>
+                      </div>
+                      <span className="font-black text-emerald-700 text-sm">-{Math.round(resultados.captura).toLocaleString()} t</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-8 p-4 bg-slate-50 rounded-xl text-[10px] text-slate-500 leading-relaxed">
+                <span className="font-bold text-slate-700 block mb-1 underline">Metodología Ambiental:</span>
+                Estimación técnica basada en factores de emisión promedio para la red eléctrica colombiana (0.1 kg/kWh) y potencial de captura estándar de especies urbanas en Bogotá. 
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const MetricRow = ({ label, value, total, color, icon: Icon }) => {
+  const percentage = Math.max(0, Math.min(100, (value / (total + 1)) * 100));
+  return (
+    <div className="space-y-2">
+      <div className="flex justify-between text-[11px] font-bold">
+        <span className="text-slate-500 flex items-center gap-1">
+          <Icon size={12} /> {label}
+        </span>
+        <span className="text-slate-800">{Math.round(value).toLocaleString()} t CO₂e</span>
+      </div>
+      <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden flex">
+        <div 
+          className={`h-full transition-all duration-700 ease-out ${color}`} 
+          style={{ width: `${percentage}%` }}
+        />
+      </div>
+    </div>
+  );
+};
+
+export default App;
+};
+
+export default App;
